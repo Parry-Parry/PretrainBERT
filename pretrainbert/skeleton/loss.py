@@ -26,9 +26,9 @@ class NSPLoss():
         return self.fn(pred, target)
 
 class MultiObjLoss():
-    def __init__(self, MLM_weights : Tuple[float] = (1., 50.), gen_label_smooth=False, disc_label_smooth=False) -> None:
+    def __init__(self, mlm_weights : Tuple[float] = (1., 50.), gen_label_smooth=False, disc_label_smooth=False) -> None:
        self.nsp = NSPLoss()
-       self.mlm = MLMLoss(loss_weights=MLM_weights, gen_label_smooth=gen_label_smooth, disc_label_smooth=disc_label_smooth)
+       self.mlm = MLMLoss(loss_weights=mlm_weights, gen_label_smooth=gen_label_smooth, disc_label_smooth=disc_label_smooth)
     
     def __call__(self, pred, targets):
 
