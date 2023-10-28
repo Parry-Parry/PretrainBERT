@@ -108,11 +108,11 @@ class ElectraForNSP(ElectraPreTrainedModel):
         )
 
 class ElectraForDiscrim(ElectraPreTrainedModel):
-    def __init__(self, generator_config: ElectraConfig, descriminator_config: ElectraConfig, tie_weights=True, **kwargs) -> None:
-        super().__init__(descriminator_config)
-        self.electra = ElectraModel(descriminator_config)
+    def __init__(self, generator_config: ElectraConfig, discriminator_config: ElectraConfig, tie_weights=True, **kwargs) -> None:
+        super().__init__(discriminator_config)
+        self.electra = ElectraModel(discriminator_config)
         self.generator = ElectraForMaskedLM(generator_config)
-        self.discriminator = ElectraDiscriminatorHead(descriminator_config)
+        self.discriminator = ElectraDiscriminatorHead(discriminator_config)
         self.post_init()
         self.gumbel_dist = torch.distributions.gumbel.Gumbel(0.,1.)
 
@@ -126,21 +126,22 @@ class ElectraForDiscrim(ElectraPreTrainedModel):
         return (logits.float() + gumbel).argmax(dim=-1)
     
     def forward(self, input_ids: Optional[torch.Tensor] = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        token_type_ids: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.Tensor] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        inputs_embeds: Optional[torch.Tensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.Tensor] = None,
-        past_key_values: Optional[List[torch.FloatTensor]] = None,
-        mlm_labels: Optional[torch.Tensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None, 
-        **kwargs) -> Union[Tuple[torch.Tensor], ElectraForPreTrainingOutput]:
+            attention_mask: Optional[torch.Tensor] = None,
+            token_type_ids: Optional[torch.Tensor] = None,
+            position_ids: Optional[torch.Tensor] = None,
+            head_mask: Optional[torch.Tensor] = None,
+            inputs_embeds: Optional[torch.Tensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.Tensor] = None,
+            past_key_values: Optional[List[torch.FloatTensor]] = None,
+            mlm_labels: Optional[torch.Tensor] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
+            **kwargs) -> Union[Tuple[torch.Tensor], ElectraForPreTrainingOutput]:
 
+        # Generator Model
         generator_hidden_states = self.generator(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -157,18 +158,19 @@ class ElectraForDiscrim(ElectraPreTrainedModel):
             return_dict=return_dict,
         )
 
-        mlm_generator_logits = generator_hidden_states.logits[mlm_labels, :]
+        # Determine which tokens have MLM applied
+        mlm_applied = mlm_labels != -100
+        mlm_generator_logits = generator_hidden_states.logits
 
+        # Sampling and preparing inputs for the discriminator
         with torch.no_grad():
-            # sampling
-            pred_toks = self.sample(mlm_generator_logits) # ( #mlm_positions, )
-            # produce inputs for discriminator
-            generated = input_ids.clone() # (B,L)
-            generated[mlm_labels] = pred_toks # (B,L)
-            # produce labels for discriminator
-            is_replaced = mlm_labels.clone() # (B,L)
-            is_replaced[mlm_labels] = (pred_toks != labels[mlm_labels]) # (B,L)
-        
+            pred_toks = self.sample(mlm_generator_logits[mlm_applied])  # ( #mlm_positions, )
+            generated = input_ids.clone()
+            generated[mlm_applied] = pred_toks
+            is_replaced = mlm_labels.clone()
+            is_replaced[mlm_applied] = (pred_toks != mlm_labels[mlm_applied])
+
+        # Discriminator Model
         discriminator_hidden_states = self.electra(
             input_ids=generated,
             attention_mask=attention_mask,
@@ -181,9 +183,11 @@ class ElectraForDiscrim(ElectraPreTrainedModel):
             return_dict=return_dict,
         )
 
+        # Get the discriminator logits
         logits = self.discriminator(discriminator_hidden_states.hidden_states)
 
-        loss = mlmLoss((mlm_generator_logits, generated, logits, is_replaced, non_pad, mlm_labels), mlm_labels)
+        # Calculate the loss using the custom loss function
+        loss = mlmLoss((mlm_generator_logits[mlm_applied], logits, is_replaced, attention_mask[mlm_applied], mlm_applied), mlm_labels[mlm_applied])
         
         return ElectraForPreTrainingOutput(
             loss=loss,
@@ -223,6 +227,7 @@ class ElectraForMultiObj(ElectraPreTrainedModel):
         return_dict: Optional[bool] = None, 
         **kwargs) -> Union[Tuple[torch.Tensor], ElectraForPreTrainingOutput]:
 
+        # Generator Model
         generator_hidden_states = self.generator(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -239,26 +244,44 @@ class ElectraForMultiObj(ElectraPreTrainedModel):
             return_dict=return_dict,
         )
 
+        # Determine which tokens have MLM applied
+        mlm_applied = mlm_labels != -100
+        mlm_generator_logits = generator_hidden_states.logits
+
+        # Sampling and preparing inputs for the discriminator
+        with torch.no_grad():
+            pred_toks = self.sample(mlm_generator_logits[mlm_applied])  # ( #mlm_positions, )
+            generated = input_ids.clone()
+            generated[mlm_applied] = pred_toks
+            is_replaced = mlm_labels.clone()
+            is_replaced[mlm_applied] = (pred_toks != mlm_labels[mlm_applied])
+
+        # Discriminator Model
         discriminator_hidden_states = self.electra(
-            input_ids=input_ids,
+            input_ids=generated,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            past_key_values=past_key_values,
-            use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
 
+        mlm_logits = self.discriminator(discriminator_hidden_states.hidden_states)
+        nsp_logits = self.NSP(discriminator_hidden_states.hidden_states)
+
+        # Get logits
         
+        mlm_loss = mlmLoss((mlm_generator_logits[mlm_applied], mlm_logits, is_replaced, attention_mask[mlm_applied], mlm_applied), mlm_labels[mlm_applied])
+        nsp_loss = nspLoss(nsp_logits, nsp_labels)
+
+        loss = mlm_loss + nsp_loss
+
         return ElectraForPreTrainingOutput(
             loss=loss,
-            logits=logits,
+            logits=mlm_logits,
             hidden_states=discriminator_hidden_states.hidden_states,
             attentions=discriminator_hidden_states.attentions,
         )

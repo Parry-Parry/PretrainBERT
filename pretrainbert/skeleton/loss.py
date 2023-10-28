@@ -1,5 +1,5 @@
 
-from typing import Any, Tuple
+from typing import Any
 import torch.nn as nn
 
 class MLMLoss():
@@ -10,7 +10,7 @@ class MLMLoss():
     self.disc_label_smooth = disc_label_smooth
     
   def __call__(self, pred, targets):
-    mlm_gen_logits, _, disc_logits, is_replaced, non_pad, is_mlm_applied = pred
+    mlm_gen_logits, disc_logits, is_replaced, non_pad, is_mlm_applied = pred
     gen_loss = self.gen_loss_fc(mlm_gen_logits.float(), targets[is_mlm_applied])
     disc_logits = disc_logits.masked_select(non_pad) # -> 1d tensor
     is_replaced = is_replaced.masked_select(non_pad) # -> 1d tensor
@@ -24,19 +24,3 @@ class NSPLoss():
         self.fn = nn.BCEWithLogitsLoss()
     def __call__(self, pred, target) -> Any:
         return self.fn(pred, target)
-
-class MultiObjLoss():
-    def __init__(self, mlm_weights : Tuple[float] = (1., 50.), gen_label_smooth=False, disc_label_smooth=False) -> None:
-       self.nsp = NSPLoss()
-       self.mlm = MLMLoss(loss_weights=mlm_weights, gen_label_smooth=gen_label_smooth, disc_label_smooth=disc_label_smooth)
-    
-    def __call__(self, pred, targets):
-
-        nsp_disc_logits, mlm_gen_logits, generated, disc_logits, is_replaced, non_pad, is_mlm_applied = pred
-        nsp_targets, mlm_targets = targets
-
-        nsp_loss = self.nsp(nsp_disc_logits, nsp_targets)
-        mlm_loss = self.mlm((mlm_gen_logits, generated, disc_logits, is_replaced, non_pad, is_mlm_applied), mlm_targets)
-
-        return nsp_loss + mlm_loss
-        

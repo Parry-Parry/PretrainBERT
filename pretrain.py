@@ -11,14 +11,13 @@ def main(config : str):
     model_size = model_config.pop('size')
 
     train_config = config['train']
-    deepspeed_config = config.pop('deepspeed', None)
 
     model_init = select_model(model_type)
     size_params = size_config(model_size)
 
     generator_config = ElectraConfig.from_pretrained(f'google/electra-{model_size}-generator')
     descriminator_config = ElectraConfig.from_pretrained(f'google/electra-{model_size}-discriminator')
-    tokenizer = ElectraTokenizerFast.from_pretrained(f"google/electra-{c.size}-generator")
+    tokenizer = ElectraTokenizerFast.from_pretrained(f"google/electra-{model_size}-generator")
 
     if model_type != 'NSP': 
         generator_config.hidden_size = int(descriminator_config.hidden_size/size_params['generator_size_divisor'])
@@ -30,13 +29,14 @@ def main(config : str):
         descriminator_config=descriminator_config, 
         tie_weights=train_config.pop('tie_weights', True)
         )
-
-    if deepspeed_config is not None:
-        pass
     
-    train_config.pop('type')
-    train_config.pop('size')
-    train_config.pop('tie_weights', None)
+    train_config.pop('wandb_project', None)
+
+    mask_prob = size_params.pop('mask_prob')
+    lr = size_params.pop('lr')
+    steps = size_params.pop('steps')
+    bs = size_params.pop('bs')
+    max_length = size_params.pop('max_length')
     
     dataset = load_dataset()
 
