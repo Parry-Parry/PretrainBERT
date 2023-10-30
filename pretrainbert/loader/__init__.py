@@ -1,5 +1,20 @@
-import os 
-import os.path as path
+# coding=utf-8
+# Copyright 2021 Intel Corporation. All rights reserved.
+# code taken from commit: 35b4582486fe096a5c669b6ca35a3d5c6a1ec56b
+# https://github.com/microsoft/DeepSpeedExamples/tree/master/bing_bert
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 import os
 import random
@@ -11,22 +26,26 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
 
 logger = logging.getLogger(__name__)
+
 
 class BatchType(IntEnum):
     RANKING_BATCH = 0
     QP_BATCH = 1
     PRETRAIN_BATCH = 2
 
+
 def torch_long(x):
     return torch.LongTensor(x)
+
 
 def map_to_torch(encoding):
     encoding = torch_long(encoding)
     encoding.requires_grad_(False)
-
+    return encoding
 
 class BertDatasetProviderInterface:
     def get_shard(self, index, shuffle=True):
@@ -44,6 +63,7 @@ class BertDatasetProviderInterface:
     def prefetch_batch(self):
         raise NotImplementedError
 
+# Workaround because python functions are not picklable
 class WorkerInitObj(object):
     def __init__(self, seed):
         self.seed = seed
@@ -52,23 +72,6 @@ class WorkerInitObj(object):
         np.random.seed(seed=self.seed + id)
         random.seed(self.seed + id)
 
-class DataPointer:
-    def __init__(self, dir : str, raw : str = None) -> None:
-        self.raw = raw if raw else dir
-        self.dir = dir 
-        self.init == False 
-
-    def setup(self):
-        self.init == True 
-
-    def get_task_data(self, task):
-        if path.exists(path.join(self.dir, task)):
-            data = None
-        else: 
-            assert self.init, "Data Pointer must be initialized to pre-compute a task"
-            os.makedirs(path.join(self.dir, task))
-            data = None
-        return data 
 
 def create_pretraining_dataset(
     input_file,
@@ -78,19 +81,27 @@ def create_pretraining_dataset(
     worker_init,
     data_sampler,
     no_nsp=False,
+    num_replicas=1,
+    rank=0,
+    epoch=0,
 ):
     train_data = pretraining_dataset(
         input_file=input_file, max_predictions_per_seq=max_predictions_per_seq, no_nsp=no_nsp
     )
+    sampler_instance = data_sampler(
+        train_data, num_replicas=num_replicas, rank=rank, drop_last=True
+    )
+    sampler_instance.set_epoch(epoch)
     train_dataloader = DataLoader(
         train_data,
-        sampler=data_sampler(train_data),
+        sampler=sampler_instance,
         batch_size=train_batch_size,
         num_workers=num_workers,
         worker_init_fn=worker_init,
         pin_memory=True,
     )
     return train_dataloader, len(train_data)
+
 
 class pretraining_dataset(Dataset):
     def __init__(self, input_file, max_predictions_per_seq, no_nsp=False):
@@ -149,6 +160,45 @@ class pretraining_dataset(Dataset):
                 masked_lm_labels,
             ]
 
+
+class ValidationDataset:
+    def __init__(self, args):
+        if args.local_rank == -1:
+            self.global_rank = 0
+            self.world_size = 1
+        else:
+            self.global_rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+
+        # Initialize dataset files
+        dataset_path = args.dataset_path
+        self.dataset_files = [
+            os.path.join(dataset_path, f)
+            for f in os.listdir(dataset_path)
+            if os.path.isfile(os.path.join(dataset_path, f)) and "test" in f
+        ]
+        assert (
+            len(self.dataset_files) > 0
+        ), "No validation files found, make sure *valid_*.hdf5 file exist in dataset path"
+        self.dataset_files.sort()
+        self.num_files = len(self.dataset_files)
+        if self.global_rank == 0:
+            logger.info(f"ValidationDataset - Initialization:  num_files = {self.num_files}")
+        self.max_predictions_per_seq = args.max_predictions_per_seq
+        self.no_nsp = args.no_nsp
+
+    def get_validation_set(self, index):
+        file_index = index % self.num_files
+        input_file = self.dataset_files[file_index]
+        validation_data = pretraining_dataset(
+            input_file=input_file,
+            max_predictions_per_seq=self.max_predictions_per_seq,
+            no_nsp=self.no_nsp,
+        )
+        logger.info(f"ValidationDataset - shard {file_index} - length {len(validation_data)}")
+        return validation_data
+
+
 class PreTrainingDataset(BertDatasetProviderInterface):
     def __init__(self, args, data_prefix="train", logger=None):
         self.num_workers = args.num_workers
@@ -181,7 +231,7 @@ class PreTrainingDataset(BertDatasetProviderInterface):
             self.dataset_files.sort()
         random.shuffle(self.dataset_files)
         self.num_files = len(self.dataset_files)
-        self.data_sampler = RandomSampler
+        self.data_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
 
         self.worker_init = WorkerInitObj(args.seed + args.local_rank)
         self.dataset_future = None
@@ -191,9 +241,9 @@ class PreTrainingDataset(BertDatasetProviderInterface):
             self.logger.info(f"PreTrainingDataset - Initialization:  num_files = {self.num_files}")
         self.no_nsp = args.no_nsp
 
-    def get_shard(self, index):
+    def get_shard(self, epoch):
         if self.dataset_future is None:
-            data_file = self._get_shard_file(index)
+            data_file = self._get_shard_file(epoch)
             self.train_dataloader, sample_count = create_pretraining_dataset(
                 input_file=data_file,
                 max_predictions_per_seq=self.max_predictions_per_seq,
@@ -202,17 +252,20 @@ class PreTrainingDataset(BertDatasetProviderInterface):
                 worker_init=self.worker_init,
                 data_sampler=self.data_sampler,
                 no_nsp=self.no_nsp,
+                num_replicas=self.world_size,
+                rank=self.global_rank,
+                epoch=epoch,
             )
         else:
             self.train_dataloader, sample_count = self.dataset_future.result(timeout=None)
 
         return self.train_dataloader, sample_count
 
-    def release_shard(self, index):
+    def release_shard(self, epoch):
         del self.train_dataloader
 
-    def prefetch_shard(self, index):
-        data_file = self._get_shard_file(index)
+    def prefetch_shard(self, epoch):
+        data_file = self._get_shard_file(epoch)
         self.dataset_future = self.pool.submit(
             create_pretraining_dataset,
             data_file,
@@ -222,6 +275,9 @@ class PreTrainingDataset(BertDatasetProviderInterface):
             self.worker_init,
             self.data_sampler,
             self.no_nsp,
+            self.world_size,
+            self.global_rank,
+            epoch,
         )
 
     def get_batch(self, batch_iter):
@@ -242,37 +298,3 @@ class PreTrainingDataset(BertDatasetProviderInterface):
             file_index = shard_index * self.world_size + global_rank
 
         return file_index % self.num_files
-    
-class ValidationDataset:
-    def __init__(self, args):
-        if args.local_rank == -1:
-            self.global_rank = 0
-            self.world_size = 1
-        else:
-            self.global_rank = dist.get_rank()
-            self.world_size = dist.get_world_size()
-
-        # Initialize dataset files
-        dataset_path = args.dataset_path
-        self.dataset_files = [
-            os.path.join(dataset_path, f)
-            for f in os.listdir(dataset_path)
-            if os.path.isfile(os.path.join(dataset_path, f)) and "test" in f
-        ]
-        self.dataset_files.sort()
-        self.num_files = len(self.dataset_files)
-        if self.global_rank == 0:
-            logger.info(f"ValidationDataset - Initialization:  num_files = {self.num_files}")
-        self.max_predictions_per_seq = args.max_predictions_per_seq
-        self.no_nsp = args.no_nsp
-
-    def get_validation_set(self, index):
-        file_index = index % self.num_files
-        input_file = self.dataset_files[file_index]
-        validation_data = pretraining_dataset(
-            input_file=input_file,
-            max_predictions_per_seq=self.max_predictions_per_seq,
-            no_nsp=self.no_nsp,
-        )
-        logger.info(f"ValidationDataset - shard {file_index} - length {len(validation_data)}")
-        return validation_data
