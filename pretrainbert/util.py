@@ -43,3 +43,4 @@ def mask_tokens(inputs, mask_token_index, vocab_size, special_token_indices, mlm
   pass
 
   return inputs, labels, mlm_mask
+
