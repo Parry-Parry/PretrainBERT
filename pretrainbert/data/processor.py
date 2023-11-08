@@ -15,8 +15,7 @@ class StandardProcessor(object):
                  nsp_prob : float = 0.5,
                  mlm_prob : float = 0.15,
                  original_prob : float = 0.1,
-                 replace_prob : float = 0.1,
-                 max_predictions_per_seq : int = 20):
+                 replace_prob : float = 0.1):
         
         self.hf_tokenizer = hf_tokenizer
         self.vocab = hf_tokenizer.get_vocab()
@@ -36,7 +35,6 @@ class StandardProcessor(object):
         self._original_prob = original_prob
         self._replace_prob = replace_prob
         self._mask_prob = 1 - original_prob - replace_prob
-        self._max_predictions_per_seq = max_predictions_per_seq
 
     def _truncate_seq_pair(self, first_segment, second_segment):
         """Truncates a pair of sequences to a maximum sequence length."""
