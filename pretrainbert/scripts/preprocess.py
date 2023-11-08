@@ -1,6 +1,5 @@
 from fire import Fire 
-from pretrainbert import StdProcessor, CustomProcessor
-from pretrainbert import yaml_load
+from pretrainbert import StdProcessor, CustomProcessor, yaml_load
 from transformers import AutoTokenizer
 
 def main(config : str):
@@ -15,7 +14,6 @@ def main(config : str):
     processor = StdProcessor(**config, hf_tokenizer=tokenizer) if process_type == 'std' else CustomProcessor(**config, hf_tokenizer=tokenizer)
     dataset = processor.map(**map_config)
     dataset.save_to_disk(out_dir)
-
     return "Dataset saved Successfully"
 
 if __name__ == '__main__':

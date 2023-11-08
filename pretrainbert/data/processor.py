@@ -84,7 +84,7 @@ class StandardProcessor(object):
 
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
-        return self.hf_dset.my_map(
+        return self.hf_dset.map(
             function=self,
             batched=True,
             remove_columns=self.hf_dset.column_names,
@@ -135,10 +135,10 @@ class StandardProcessor(object):
                             first_segment.extend(self._current_sentences[j])
                         
                         second_segment = []
-                        label = 1
+                        label = 0
 
                         if len(self._current_sentences) == 1 or random.random() < self._nsp_prob:
-                            label = 0
+                            label = 1
 
                             target_second_length = self._target_length - len(first_segment)
                             for _ in range(10):
@@ -146,7 +146,7 @@ class StandardProcessor(object):
                                 if random_document_index != i:
                                     break
                             if random_document_index == i:
-                                label = 1
+                                label = 0
                             
                             random_document = texts[random_document_index]
                             random_document_lines = re.split(self.lines_delimiter, random_document)
@@ -161,7 +161,7 @@ class StandardProcessor(object):
                             num_unused_segments = len(self._current_sentences) - first_end
                             i -= num_unused_segments
                         else:
-                            label = 1
+                            label = 0
                             for k in range(first_end, len(self._current_sentences)):
                                 second_segment.extend(self._current_sentences[k])
                 
@@ -186,7 +186,7 @@ class CustomProcessor(StandardProcessor):
 
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
-        return self.hf_dset.my_map(
+        return self.hf_dset.map(
             function=self,
             batched=True,
             remove_columns=self.hf_dset.column_names,
@@ -212,14 +212,14 @@ class CustomProcessor(StandardProcessor):
             lines = re.split(self.lines_delimiter, text)
             current_title = title
             if random.random() < self._nsp_prob:
-                label = 0
+                label = 1
 
                 for _ in range(10):
                     random_title_index = random.randint(0, len(titles) - 1)
                     if random_title_index != i:
                         break
                 if random_title_index == i:
-                    label = 1
+                    label = 0
                 
                 current_title = titles[random_title_index]
 
