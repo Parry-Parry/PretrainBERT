@@ -121,15 +121,15 @@ class StandardProcessor(object):
         for i, text in enumerate(texts): # for every doc
             lines = re.split(self.lines_delimiter, text)
             j = 0
-            while j < len(lines): # for every paragraph
+            while j < len(lines): # while segments can exist
                 line = lines[j]
                 if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
                 if self.apply_cleaning and self.filter_out(line): continue
 
                 self.add_line(line)
 
-                if self._current_length >= self._target_length or j == len(lines) - 1:
-                    if self._current_sentences:
+                if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
+                    if self._current_sentences: # Sanity check
                         first_end = 1
                         if len(self._current_sentences) >= 2:
                             first_end = random.randint(1, len(self._current_sentences) - 1)
@@ -141,7 +141,7 @@ class StandardProcessor(object):
                         second_segment = []
                         label = 0
 
-                        if len(self._current_sentences) == 1 or random.random() < self._nsp_prob:
+                        if len(self._current_sentences) == 1 or random.random() < self._nsp_prob: # NSP Swapping
                             label = 1
 
                             target_second_length = self._target_length - len(first_segment)
@@ -162,8 +162,8 @@ class StandardProcessor(object):
                                 if len(second_segment) >= target_second_length:
                                     break
                             
-                            num_unused_segments = len(self._current_sentences) - first_end
-                            j -= num_unused_segments
+                            num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
+                            j -= num_unused_segments # Reset iterator
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
@@ -238,12 +238,12 @@ class CustomProcessor(StandardProcessor):
                     self._current_length += len(title_tokids)
 
                 line = lines[j]
-                if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
+                if re.fullmatch(r'\s*', line): continue 
                 if self.apply_cleaning and self.filter_out(line): continue
 
                 self.add_line(line)
                 
-                if self._current_length >= self._target_length or j == len(lines) - 1:
+                if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences:
                         second_end = 1
                         if len(self._current_sentences) >= 2:
