@@ -35,6 +35,10 @@ class StandardProcessor(object):
         self._original_prob = original_prob
         self._replace_prob = replace_prob
         self._mask_prob = 1 - original_prob - replace_prob
+    
+    def _reset(self):
+        self._current_sentences = []
+        self._current_length = 0
 
     def _truncate_seq_pair(self, first_segment, second_segment):
         """Truncates a pair of sequences to a maximum sequence length."""
@@ -116,21 +120,23 @@ class StandardProcessor(object):
         dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, text in enumerate(texts): # for every doc
             lines = re.split(self.lines_delimiter, text)
-            for j, line in enumerate(lines): # for every paragraph
+            j = 0
+            while j < len(lines): # for every paragraph
+                line = lines[j]
                 if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
                 if self.apply_cleaning and self.filter_out(line): continue
 
                 self.add_line(line)
 
-                if self._current_length >= self._target_length:
+                if self._current_length >= self._target_length or j == len(lines) - 1:
                     if self._current_sentences:
                         first_end = 1
                         if len(self._current_sentences) >= 2:
                             first_end = random.randint(1, len(self._current_sentences) - 1)
                         
                         first_segment = []
-                        for j in range(first_end):
-                            first_segment.extend(self._current_sentences[j])
+                        for k in range(first_end):
+                            first_segment.extend(self._current_sentences[k])
                         
                         second_segment = []
                         label = 0
@@ -151,13 +157,13 @@ class StandardProcessor(object):
                             random_document_tokids = self.process_document(random_document_lines)
                             random_start = random.randint(0, len(random_document_lines) - 1)
 
-                            for j in range(random_start, len(random_document_tokids)):
-                                second_segment.extend(random_document_tokids[j])
+                            for k in range(random_start, len(random_document_tokids)):
+                                second_segment.extend(random_document_tokids[k])
                                 if len(second_segment) >= target_second_length:
                                     break
                             
                             num_unused_segments = len(self._current_sentences) - first_end
-                            i -= num_unused_segments
+                            j -= num_unused_segments
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
@@ -175,6 +181,7 @@ class StandardProcessor(object):
                         dataset['nsp_label'].append(label)
                         dataset['mlm_positions'].append(masked_lm_positions)
                         dataset['mlm_labels'].append(masked_lm_labels)
+                        self._reset()
         return dataset
 
 class CustomProcessor(StandardProcessor):
@@ -209,33 +216,34 @@ class CustomProcessor(StandardProcessor):
         dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, (text, title) in enumerate(zip(texts, titles)): # for every doc
             lines = re.split(self.lines_delimiter, text)
-            current_title = title
-            if random.random() < self._nsp_prob:
-                label = 1
-
-                for _ in range(10):
-                    random_title_index = random.randint(0, len(titles) - 1)
-                    if random_title_index != i:
-                        break
-                if random_title_index == i:
-                    label = 0
-                
-                current_title = titles[random_title_index]
-
-            title_tokens = self.hf_tokenizer.tokenize(current_title)
-            title_tokids = self.hf_tokenizer.convert_tokens_to_ids(title_tokens)
-            first_segment = title_tokids
-            self._current_length += len(title_tokids)
-
             second_segment = []
+            j = 0
+            while j < len(lines): # for every paragraph
+                if len(self._current_sentences) == 0: # Just reset so find a new title
+                    label = 0
+                    current_title = title
+                    if random.random() < self._nsp_prob:
+                        label = 1
+                        for _ in range(10):
+                            random_title_index = random.randint(0, len(titles) - 1)
+                            if random_title_index != i:
+                                break
+                        if random_title_index == i:
+                            label = 0
+                        current_title = titles[random_title_index]
 
-            for j, line in enumerate(lines): # for every paragraph
+                    title_tokens = self.hf_tokenizer.tokenize(current_title)
+                    title_tokids = self.hf_tokenizer.convert_tokens_to_ids(title_tokens)
+                    first_segment = title_tokids
+                    self._current_length += len(title_tokids)
+
+                line = lines[j]
                 if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
                 if self.apply_cleaning and self.filter_out(line): continue
 
                 self.add_line(line)
-
-                if self._current_length >= self._target_length:
+                
+                if self._current_length >= self._target_length or j == len(lines) - 1:
                     if self._current_sentences:
                         second_end = 1
                         if len(self._current_sentences) >= 2:
@@ -248,20 +256,21 @@ class CustomProcessor(StandardProcessor):
                         second_segment = []
                         label = 1
 
-            if self.invert:
-                first_segment, second_segment = second_segment, first_segment
-                
-            self._truncate_seq_pair(first_segment, second_segment)
-            
-            tokens = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id] + second_segment + [self.hf_tokenizer.sep_token_id]
-            segment_ids = [0] * (len(first_segment) + 2) + [1] * (len(second_segment) + 1) 
+                    if self.invert:
+                        first_segment, second_segment = second_segment, first_segment
+                        
+                    self._truncate_seq_pair(first_segment, second_segment)
+                    
+                    tokens = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id] + second_segment + [self.hf_tokenizer.sep_token_id]
+                    segment_ids = [0] * (len(first_segment) + 2) + [1] * (len(second_segment) + 1) 
 
-            (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
+                    (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
-            dataset['input_ids'].append(tokens)
-            dataset['segment_ids'].append(segment_ids)
-            dataset['nsp_label'].append(label)
-            dataset['mlm_positions'].append(masked_lm_positions)
-            dataset['mlm_labels'].append(masked_lm_labels)
+                    dataset['input_ids'].append(tokens)
+                    dataset['segment_ids'].append(segment_ids)
+                    dataset['nsp_label'].append(label)
+                    dataset['mlm_positions'].append(masked_lm_positions)
+                    dataset['mlm_labels'].append(masked_lm_labels)
+                    self._reset()
 
         return dataset
