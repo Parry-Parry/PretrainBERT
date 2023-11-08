@@ -59,7 +59,8 @@ class StandardProcessor(object):
 
     def _create_mlm(self, tokens):
 
-        device = tokens.device
+        device = torch.device('cpu')
+        tokens = torch.tensor(tokens, dtype=torch.long, device=device)
         labels = tokens.clone()
         
         # Get positions to apply mlm (mask/replace/not changed). (mlm_probability)
@@ -82,7 +83,7 @@ class StandardProcessor(object):
             random_words = torch.randint(len(self.vocab), labels.shape, dtype=torch.long, device=device)
             tokens[replace_token_mask] = random_words[replace_token_mask]
 
-        return tokens, mlm_mask, labels 
+        return tokens.numpy().tolist(), mlm_mask.numpy().tolist(), labels.numpy().tolist()
 
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
@@ -185,7 +186,7 @@ class StandardProcessor(object):
         return dataset
 
 class CustomProcessor(StandardProcessor):
-    def __init__(self, additional_col = 'title', invert=False, **kwargs):
+    def __init__(self, additional_col = 'additional', invert=False, **kwargs):
         super().__init__(**kwargs)
         self.additional_col = additional_col
         self.invert = invert
@@ -212,30 +213,32 @@ class CustomProcessor(StandardProcessor):
 
         return None
 
-    def __call__(self, texts, titles):
+    def __call__(self, inputs):
+        texts = inputs[self.text_col]
+        additional = inputs[self.additional_col]
         dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
-        for i, (text, title) in enumerate(zip(texts, titles)): # for every doc
+        for i, (text, additional) in enumerate(zip(texts, additional)): # for every doc
             lines = re.split(self.lines_delimiter, text)
             second_segment = []
             j = 0
             while j < len(lines): # for every paragraph
-                if len(self._current_sentences) == 0: # Just reset so find a new title
+                if len(self._current_sentences) == 0: # Just reset so find a new additional
                     label = 0
-                    current_title = title
+                    current_additional = additional
                     if random.random() < self._nsp_prob:
                         label = 1
                         for _ in range(10):
-                            random_title_index = random.randint(0, len(titles) - 1)
-                            if random_title_index != i:
+                            random_additional_index = random.randint(0, len(additional) - 1)
+                            if random_additional_index != i:
                                 break
-                        if random_title_index == i:
+                        if random_additional_index == i:
                             label = 0
-                        current_title = titles[random_title_index]
+                        current_additional = additional[random_additional_index]
 
-                    title_tokens = self.hf_tokenizer.tokenize(current_title)
-                    title_tokids = self.hf_tokenizer.convert_tokens_to_ids(title_tokens)
-                    first_segment = title_tokids
-                    self._current_length += len(title_tokids)
+                    additional_tokens = self.hf_tokenizer.tokenize(current_additional)
+                    additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
+                    first_segment = additional_tokids
+                    self._current_length += len(additional_tokids)
 
                 line = lines[j]
                 if re.fullmatch(r'\s*', line): continue 
