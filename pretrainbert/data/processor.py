@@ -178,9 +178,10 @@ class StandardProcessor(object):
         return dataset
 
 class CustomProcessor(StandardProcessor):
-    def __init__(self, additional_col = 'title', **kwargs):
+    def __init__(self, additional_col = 'title', invert=False, **kwargs):
         super().__init__(**kwargs)
         self.additional_col = additional_col
+        self.invert = invert
 
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
@@ -246,6 +247,9 @@ class CustomProcessor(StandardProcessor):
                         
                         second_segment = []
                         label = 1
+
+            if self.invert:
+                first_segment, second_segment = second_segment, first_segment
                 
             self._truncate_seq_pair(first_segment, second_segment)
             
