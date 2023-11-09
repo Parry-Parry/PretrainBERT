@@ -1,5 +1,5 @@
 from fire import Fire 
-from pretrainbert import StdProcessor, CustomProcessor, yaml_load
+from pretrainbert import StandardProcessor, CustomProcessor, yaml_load
 from transformers import AutoTokenizer
 from datasets import load_dataset
 
@@ -14,7 +14,7 @@ def main(config : str):
     dataset = load_dataset(**config.pop('dataset_config'))
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)
-    processor = StdProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
+    processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
     dataset = processor.map(**map_config)
     dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
