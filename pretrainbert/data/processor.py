@@ -178,6 +178,7 @@ class StandardProcessor(object):
                         (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
                         dataset['input_ids'].append(tokens)
+                        dataset['attention_mask'] = [1] * len(tokens)
                         dataset['segment_ids'].append(segment_ids)
                         dataset['nsp_label'].append(label)
                         dataset['mlm_positions'].append(masked_lm_positions)
@@ -270,6 +271,7 @@ class CustomProcessor(StandardProcessor):
                     (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
                     dataset['input_ids'].append(tokens)
+                    dataset['attention_mask'] = [1] * len(tokens)
                     dataset['segment_ids'].append(segment_ids)
                     dataset['nsp_label'].append(label)
                     dataset['mlm_positions'].append(masked_lm_positions)

@@ -1,6 +1,7 @@
 from fire import Fire 
 from pretrainbert import StdProcessor, CustomProcessor, yaml_load
 from transformers import AutoTokenizer
+from datasets import load_dataset
 
 def main(config : str):
     config = yaml_load(config)
@@ -10,8 +11,10 @@ def main(config : str):
     map_config = config.pop('map_config', {})
     out_dir = config.pop('out_dir', './')
 
+    dataset = load_dataset(**config.pop('dataset_config'))
+
     tokenizer = AutoTokenizer.from_pretrained(model_id)
-    processor = StdProcessor(**config, hf_tokenizer=tokenizer) if process_type == 'std' else CustomProcessor(**config, hf_tokenizer=tokenizer)
+    processor = StdProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
     dataset = processor.map(**map_config)
     dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
