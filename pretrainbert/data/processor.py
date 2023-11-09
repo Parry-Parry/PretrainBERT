@@ -7,7 +7,7 @@ class StandardProcessor(object):
     def __init__(self, 
                  hf_dset, 
                  hf_tokenizer, 
-                 max_length, 
+                 max_length : int = 512, 
                  text_col='text', 
                  lines_delimiter='\n', 
                  apply_cleaning=True,
@@ -175,10 +175,14 @@ class StandardProcessor(object):
                         second_segment += [self.hf_tokenizer.sep_token_id]
                         segment_ids = self.hf_tokenizer.create_token_type_ids_from_sequences(first_segment, second_segment)
                         tokens = first_segment + second_segment
+
                         (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
+                        attention_mask = [1] * len(tokens) + [0] * (self._max_length - len(tokens))
+                        tokens = tokens + [self.hf_tokenizer.pad_token_id] * (self._max_length - len(tokens))
+
                         dataset['input_ids'].append(tokens)
-                        dataset['attention_mask'] = [1] * len(tokens)
+                        dataset['attention_mask'].append(attention_mask)    
                         dataset['segment_ids'].append(segment_ids)
                         dataset['nsp_label'].append(label)
                         dataset['mlm_positions'].append(masked_lm_positions)
@@ -270,8 +274,11 @@ class CustomProcessor(StandardProcessor):
 
                     (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
+                    attention_mask = [1] * len(tokens) + [0] * (self._max_length - len(tokens))
+                    tokens = tokens + [self.hf_tokenizer.pad_token_id] * (self._max_length - len(tokens))
+
                     dataset['input_ids'].append(tokens)
-                    dataset['attention_mask'] = [1] * len(tokens)
+                    dataset['attention_mask'].append(attention_mask)    
                     dataset['segment_ids'].append(segment_ids)
                     dataset['nsp_label'].append(label)
                     dataset['mlm_positions'].append(masked_lm_positions)
