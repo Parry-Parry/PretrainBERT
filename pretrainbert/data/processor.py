@@ -35,6 +35,8 @@ class StandardProcessor(object):
         self._original_prob = original_prob
         self._replace_prob = replace_prob
         self._mask_prob = 1 - original_prob - replace_prob
+
+        self.columns = [self.text_col]
     
     def _reset(self):
         self._current_sentences = []
@@ -92,9 +94,10 @@ class StandardProcessor(object):
             batched=True,
             remove_columns=self.hf_dset.column_names,
             disable_nullable=False,
-            input_columns=[self.text_col],
+            input_columns=self.columns,
             writer_batch_size=10**4,
             num_proc=num_proc,
+            verbose=True,
             **kwargs
         )
 
@@ -196,18 +199,7 @@ class CustomProcessor(StandardProcessor):
         self.additional_col = additional_col
         self.invert = invert
 
-    def map(self, **kwargs):
-        num_proc = kwargs.pop('num_proc', os.cpu_count())
-        return self.hf_dset.map(
-            function=self,
-            batched=True,
-            remove_columns=self.hf_dset.column_names,
-            disable_nullable=False,
-            input_columns=[self.text_col, self.additional_col],
-            writer_batch_size=10**4,
-            num_proc=num_proc,
-            **kwargs
-        )
+        self.columns.append(self.additional_col)
     
     def add_line(self, line):
         line = self.clean(line)

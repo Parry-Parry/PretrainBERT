@@ -1,7 +1,11 @@
 from fire import Fire 
+import logging
 from pretrainbert import StandardProcessor, CustomProcessor, yaml_load
 from transformers import AutoTokenizer
 from datasets import load_dataset
+import datasets 
+
+datasets.logging.set_verbosity_info()
 
 def main(config : str):
     config = yaml_load(config)
