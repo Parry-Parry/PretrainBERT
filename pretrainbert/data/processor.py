@@ -97,7 +97,6 @@ class StandardProcessor(object):
             input_columns=self.columns,
             writer_batch_size=10**4,
             num_proc=num_proc,
-            verbose=True,
             **kwargs
         )
 

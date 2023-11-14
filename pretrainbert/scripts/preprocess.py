@@ -6,6 +6,7 @@ from datasets import load_dataset
 import datasets 
 
 datasets.logging.set_verbosity_info()
+datasets.logging.enable_progress_bar() 
 
 def main(config : str):
     config = yaml_load(config)
