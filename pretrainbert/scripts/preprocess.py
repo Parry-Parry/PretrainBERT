@@ -19,9 +19,11 @@ def main(config : str):
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
+    logging.info("Processing Dataset")
     dataset = processor.map(**map_config)
     dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     Fire(main)
