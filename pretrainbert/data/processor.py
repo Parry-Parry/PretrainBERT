@@ -136,6 +136,7 @@ class StandardProcessor(object):
                 j += 1
 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
+                    logging.info('creating example')
                     if self._current_sentences: # Sanity check
                         first_end = 1
                         if len(self._current_sentences) >= 2:
