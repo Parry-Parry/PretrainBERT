@@ -2,6 +2,7 @@ import os
 import re
 import random
 import torch
+import logging
 from nltk.tokenize import sent_tokenize
 
 class StandardProcessor(object):
@@ -130,7 +131,7 @@ class StandardProcessor(object):
                 try:
                     line = lines[j]
                 except IndexError:
-                    print(f'Error at pos {j} {len(lines)}')
+                    logging.info(f'Error at pos {j} {len(lines)}')
                 if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
                 if self.apply_cleaning and self.filter_out(line): continue
 
