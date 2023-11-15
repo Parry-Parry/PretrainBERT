@@ -132,8 +132,8 @@ class StandardProcessor(object):
                     line = lines[j]
                 except IndexError:
                     logging.info(f'Error at pos {j} {len(lines)}')
-                if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
-                if self.apply_cleaning and self.filter_out(line): continue
+                if self.apply_cleaning and self.filter_out(line): 
+                    continue
 
                 self.add_line(line)
 
