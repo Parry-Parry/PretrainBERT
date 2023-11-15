@@ -214,10 +214,10 @@ class CustomProcessor(StandardProcessor):
 
     def __call__(self, inputs):
         texts = inputs[self.text_col]
-        additional = inputs[self.additional_col]
+        additionals = inputs[self.additional_col]
         dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
-        for i, (text, additional) in enumerate(zip(texts, additional)): # for every doc
-            lines = re.split(self.lines_delimiter, text)
+        for i, (text, additional) in enumerate(zip(texts, additionals)): # for every doc
+            lines = sent_tokenize(text)
             second_segment = []
             j = 0
             while j < len(lines): # for every paragraph
@@ -240,10 +240,8 @@ class CustomProcessor(StandardProcessor):
                     self._current_length += len(additional_tokids)
 
                 line = lines[j]
-                if re.fullmatch(r'\s*', line): continue 
-                if self.apply_cleaning and self.filter_out(line): continue
-
                 self.add_line(line)
+                j += 1
                 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences:
