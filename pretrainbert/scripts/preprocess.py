@@ -1,7 +1,7 @@
 from fire import Fire 
 import logging
 from pretrainbert import StandardProcessor, CustomProcessor, yaml_load
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, ElectraTokenizerFast
 from datasets import load_dataset
 import datasets 
 
@@ -18,7 +18,7 @@ def main(config : str):
 
     dataset = load_dataset(**config.pop('dataset_config'))
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    tokenizer = ElectraTokenizerFast.from_pretrained(model_id) if 'electra' in model_id else AutoTokenizer.from_pretrained(model_id)
     processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
     logging.info("Processing Dataset")
     dataset = processor.map(**map_config)

@@ -136,7 +136,6 @@ class StandardProcessor(object):
                 j += 1
 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
-                    logging.info('creating example')
                     if self._current_sentences: # Sanity check
                         first_end = 1
                         if len(self._current_sentences) >= 2:
@@ -161,7 +160,7 @@ class StandardProcessor(object):
                                 label = 0
                             
                             random_document = texts[random_document_index]
-                            random_document_lines = re.split(self.lines_delimiter, random_document)
+                            random_document_lines = sent_tokenize(random_document)
                             random_document_tokids = self.process_document(random_document_lines)
                             random_start = random.randint(0, len(random_document_lines) - 1)
 
@@ -171,7 +170,6 @@ class StandardProcessor(object):
                                     break
                             num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
                             j -= num_unused_segments # Reset iterator
-                            logging.info(j)
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
