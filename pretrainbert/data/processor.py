@@ -131,7 +131,7 @@ class StandardProcessor(object):
                 try:
                     line = lines[j]
                 except IndexError:
-                    logging.info(f'Error at pos {j} {len(lines)}')
+                    raise Exception(f"IndexError: {i}, {j}, {len(lines)}")
                 if self.apply_cleaning and self.filter_out(line): 
                     continue
 
