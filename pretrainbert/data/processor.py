@@ -127,7 +127,10 @@ class StandardProcessor(object):
             lines = sent_tokenize(text)
             j = 0
             while j < len(lines): # while segments can exist
-                line = lines[j]
+                try:
+                    line = lines[j]
+                except IndexError:
+                    print(f'Error at pos {j} {len(lines)}')
                 if re.fullmatch(r'\s*', line): continue # empty string or string with all space characters
                 if self.apply_cleaning and self.filter_out(line): continue
 
