@@ -95,7 +95,7 @@ class StandardProcessor(object):
             remove_columns=self.hf_dset.column_names,
             disable_nullable=False,
             input_columns=self.columns,
-            writer_batch_size=10**4,
+            writer_batch_size=10_000,
             num_proc=num_proc,
             **kwargs
         )
