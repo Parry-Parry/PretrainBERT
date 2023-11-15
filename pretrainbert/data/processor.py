@@ -170,7 +170,8 @@ class StandardProcessor(object):
                                 second_segment.extend(random_document_tokids[k])
                                 if len(second_segment) >= target_second_length:
                                     break
-                            
+                            logging.info(len(self._current_sentences))
+                            logging.info(first_end)
                             num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
                             j -= num_unused_segments # Reset iterator
                         else:
