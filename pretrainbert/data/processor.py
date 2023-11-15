@@ -62,7 +62,6 @@ class StandardProcessor(object):
                 trunc_tokens.pop()
 
     def _create_mlm(self, tokens):
-
         device = torch.device('cpu')
         tokens = torch.tensor(tokens, dtype=torch.long, device=device)
         labels = tokens.clone()
@@ -132,12 +131,9 @@ class StandardProcessor(object):
                     line = lines[j]
                 except IndexError:
                     raise Exception(f"IndexError: {i}, {j}, {len(lines)}")
-                if self.apply_cleaning and self.filter_out(line): 
-                    continue
 
                 self.add_line(line)
                 j += 1
-                logging.info(j)
 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences: # Sanity check
