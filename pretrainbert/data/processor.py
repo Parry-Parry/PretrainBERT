@@ -122,7 +122,7 @@ class StandardProcessor(object):
         return None
     
     def __call__(self, texts):
-        dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+        dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, text in enumerate(texts): # for every doc
             lines = sent_tokenize(text)
             j = 0
@@ -214,7 +214,7 @@ class CustomProcessor(StandardProcessor):
     def __call__(self, inputs):
         texts = inputs[self.text_col]
         additional = inputs[self.additional_col]
-        dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+        dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, (text, additional) in enumerate(zip(texts, additional)): # for every doc
             lines = re.split(self.lines_delimiter, text)
             second_segment = []
