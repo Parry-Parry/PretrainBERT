@@ -136,6 +136,7 @@ class StandardProcessor(object):
                     continue
 
                 self.add_line(line)
+                j += 1
 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences: # Sanity check
@@ -172,7 +173,6 @@ class StandardProcessor(object):
                                     break
                             num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
                             j -= num_unused_segments # Reset iterator
-                            logging.info(j)
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
