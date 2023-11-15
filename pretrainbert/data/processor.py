@@ -2,7 +2,7 @@ import os
 import re
 import random
 import torch
-from tqdm import tqdm
+from nltk.tokenize import sent_tokenize
 
 class StandardProcessor(object):
     def __init__(self, 
@@ -10,7 +10,7 @@ class StandardProcessor(object):
                  hf_tokenizer, 
                  max_length : int = 512, 
                  text_col='text', 
-                 lines_delimiter='\n', 
+                 lines_delimiter='.', 
                  apply_cleaning=True,
                  short_seq_prob : float = 0.1,
                  nsp_prob : float = 0.5,
@@ -123,11 +123,8 @@ class StandardProcessor(object):
     
     def __call__(self, texts):
         dataset = {'input_ids':[], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
-        # tdqm progress bar
-        progress_bar = tqdm(total=len(texts), desc='Processing', unit='docs')
         for i, text in enumerate(texts): # for every doc
-            progress_bar.update(1)
-            lines = re.split(self.lines_delimiter, text)
+            lines = sent_tokenize(text)
             j = 0
             while j < len(lines): # while segments can exist
                 line = lines[j]
