@@ -137,6 +137,7 @@ class StandardProcessor(object):
 
                 self.add_line(line)
                 j += 1
+                logging.info(j)
 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences: # Sanity check
