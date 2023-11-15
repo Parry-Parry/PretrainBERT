@@ -173,6 +173,7 @@ class StandardProcessor(object):
                                     break
                             num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
                             j -= num_unused_segments # Reset iterator
+                            logging.info(j)
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
