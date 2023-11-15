@@ -131,7 +131,7 @@ class StandardProcessor(object):
                 try:
                     line = lines[j]
                 except IndexError:
-                    raise Exception(f"IndexError: {i}, {j}, {len(lines)} {first_end}")
+                    raise Exception(f"IndexError: {i}, {j}, {len(lines)}")
                 if self.apply_cleaning and self.filter_out(line): 
                     continue
 
@@ -170,10 +170,9 @@ class StandardProcessor(object):
                                 second_segment.extend(random_document_tokids[k])
                                 if len(second_segment) >= target_second_length:
                                     break
-                            logging.info(len(self._current_sentences))
-                            logging.info(first_end)
                             num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
                             j -= num_unused_segments # Reset iterator
+                            logging.info(j)
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
