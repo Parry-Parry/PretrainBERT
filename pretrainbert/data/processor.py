@@ -89,13 +89,14 @@ class StandardProcessor(object):
 
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
+        batch_size = kwargs.pop('batch_size', 10_000)
         return self.hf_dset.map(
             function=self,
-            batched=True,
+            batched=True if batch_size > 1 else False,
             remove_columns=self.hf_dset.column_names,
             disable_nullable=False,
             input_columns=self.columns,
-            writer_batch_size=10_000,
+            writer_batch_size=batch_size,
             num_proc=num_proc,
             **kwargs
         )
