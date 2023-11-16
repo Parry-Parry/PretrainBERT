@@ -19,7 +19,7 @@ def main(config : str):
     dataset = load_dataset(**config.pop('dataset_config'))
 
     tokenizer = ElectraTokenizerFast.from_pretrained(model_id) if 'electra' in model_id else AutoTokenizer.from_pretrained(model_id)
-    processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dataset=dataset, hf_tokenizer=tokenizer, **config)
+    processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dset=dataset, hf_tokenizer=tokenizer, **config)
     logging.info("Processing Dataset")
     dataset = processor.map(**map_config)
     dataset.save_to_disk(out_dir)

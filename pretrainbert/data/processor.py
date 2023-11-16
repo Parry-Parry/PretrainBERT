@@ -130,7 +130,8 @@ class StandardProcessor(object):
                 try:
                     line = lines[j]
                 except IndexError:
-                    raise Exception(f"IndexError: {i}, {j}, {len(lines)}")
+                    self._reset()
+                    break
 
                 self.add_line(line)
                 j += 1
@@ -238,8 +239,11 @@ class CustomProcessor(StandardProcessor):
                     additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
                     first_segment = additional_tokids
                     self._current_length += len(additional_tokids)
-
-                line = lines[j]
+                try:
+                    line = lines[j]
+                except IndexError:
+                    self._reset()
+                    break
                 self.add_line(line)
                 j += 1
                 
