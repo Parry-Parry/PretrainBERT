@@ -213,9 +213,7 @@ class CustomProcessor(StandardProcessor):
 
         return None
 
-    def __call__(self, inputs):
-        texts = inputs[self.text_col]
-        additionals = inputs[self.additional_col]
+    def __call__(self, texts, additionals):
         dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, (text, additional) in enumerate(zip(texts, additionals)): # for every doc
             lines = sent_tokenize(text)
