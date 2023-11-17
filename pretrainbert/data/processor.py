@@ -220,6 +220,7 @@ class CustomProcessor(StandardProcessor):
             second_segment = []
             j = 0
             while j < len(lines): # for every paragraph
+                j += 1
                 if len(self._current_sentences) == 0: # Just reset so find a new additional
                     label = 0
                     current_additional = additional
@@ -243,7 +244,6 @@ class CustomProcessor(StandardProcessor):
                     self._reset()
                     break
                 self.add_line(line)
-                j += 1
                 
                 if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
                     if self._current_sentences:
