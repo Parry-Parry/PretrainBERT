@@ -163,14 +163,19 @@ class StandardProcessor(object):
                             random_document = texts[random_document_index]
                             random_document_lines = sent_tokenize(random_document)
                             random_document_tokids = self.process_document(random_document_lines)
-                            random_start = random.randint(0, len(random_document_lines) - 1)
+                            if len(random_document_lines) == 0: 
+                                label = 0
+                                for k in range(first_end, len(self._current_sentences)):
+                                    second_segment.extend(self._current_sentences[k])
+                            else:
+                                random_start = random.randint(0, len(random_document_lines) - 1)
 
-                            for k in range(random_start, len(random_document_tokids)):
-                                second_segment.extend(random_document_tokids[k])
-                                if len(second_segment) >= target_second_length:
-                                    break
-                            num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
-                            j -= num_unused_segments # Reset iterator
+                                for k in range(random_start, len(random_document_tokids)):
+                                    second_segment.extend(random_document_tokids[k])
+                                    if len(second_segment) >= target_second_length:
+                                        break
+                                num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
+                                j -= num_unused_segments # Reset iterator
                         else:
                             label = 0
                             for k in range(first_end, len(self._current_sentences)):
@@ -215,7 +220,7 @@ class CustomProcessor(StandardProcessor):
 
     def __call__(self, texts, additionals):
         dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
-        for i, (text, additional) in enumerate(zip(texts, additionals)): # for every doc
+        for i, text in enumerate(texts): # for every doc
             lines = sent_tokenize(text)
             second_segment = []
             j = 0
@@ -223,16 +228,16 @@ class CustomProcessor(StandardProcessor):
                 j += 1
                 if len(self._current_sentences) == 0: # Just reset so find a new additional
                     label = 0
-                    current_additional = additional
+                    current_additional = additionals[i]
                     if random.random() < self._nsp_prob:
                         label = 1
                         for _ in range(10):
-                            random_additional_index = random.randint(0, len(additional) - 1)
+                            random_additional_index = random.randint(0, len(additionals) - 1)
                             if random_additional_index != i:
                                 break
                         if random_additional_index == i:
                             label = 0
-                        current_additional = additional[random_additional_index]
+                        current_additional = additionals[random_additional_index]
 
                     additional_tokens = self.hf_tokenizer.tokenize(current_additional)
                     additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
