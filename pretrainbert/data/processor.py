@@ -219,6 +219,7 @@ class CustomProcessor(StandardProcessor):
         return None
 
     def __call__(self, texts, additionals):
+        logging.info(texts[0], additionals[0])
         dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         for i, text in enumerate(texts): # for every doc
             lines = sent_tokenize(text)
@@ -257,11 +258,10 @@ class CustomProcessor(StandardProcessor):
                             second_end = random.randint(1, len(self._current_sentences) - 1)
                         
                         second_segment = []
-                        for j in range(second_end):
-                            second_segment.extend(self._current_sentences[j])
-                        
-                        second_segment = []
-                        label = 1
+                        for k in range(second_end):
+                            second_segment.extend(self._current_sentences[k])
+                        num_unused_segments = len(self._current_sentences) - second_end # Reuse unused segments
+                        j -= num_unused_segments # Reset iterator
 
                     if self.invert:
                         first_segment, second_segment = second_segment, first_segment
