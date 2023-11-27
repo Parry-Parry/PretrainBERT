@@ -102,9 +102,8 @@ class StandardProcessor(object):
         batch_size = kwargs.pop('batch_size', 10_000)
         batches = self._batch(irds.load(self.irds).docs_iter(), batch_size)
         records = []
-        from operator import length_hint
 
-        with Pool(num_proc) as pool, tqdm(len=length_hint(batches)) as pbar:
+        with Pool(num_proc) as pool, tqdm() as pbar:
             for result in pool.imap_unordered(self, batches):
                 records.extend(result)
                 pbar.update(1)
