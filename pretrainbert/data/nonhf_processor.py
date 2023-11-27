@@ -124,7 +124,7 @@ class StandardProcessor(object):
         _current_sentences = []
         _current_length = 0
 
-        def add_line(self, line):
+        def add_line(line):
             line = self.clean(line)
             tokens = self.hf_tokenizer.tokenize(line)
             tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
@@ -230,7 +230,7 @@ class CustomProcessor(StandardProcessor):
         _current_sentences = []
         _current_length = 0
 
-        def add_line(self, line):
+        def add_line(line):
             line = self.clean(line)
             tokens = self.hf_tokenizer.tokenize(line)
             tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
