@@ -1,15 +1,11 @@
-import os 
+import os
+import pandas as pd
 import random
 import torch
-import logging
 from nltk.tokenize import sent_tokenize
 import ir_datasets as irds
-'''
-TODO:
-    - Create doc and title lookups for on the fly random samples
-    - Create full batching function which takes out all essential cols and creates a tuple of lists
-    - Call should then simply take in the list of tuples and process them
-'''
+from multiprocessing import Pool
+from tqdm import tqdm
 
 class StandardProcessor(object):
     def __init__(self, 
@@ -105,11 +101,21 @@ class StandardProcessor(object):
         batch_size = kwargs.pop('batch_size', 10_000)
         batches = self._batch(self.irds.docs_iter(), batch_size)
         records = []
-        # use multiprocessing to process batches as list through self method
-        from multiprocessing import Pool
-        with Pool(num_proc) as pool:
-            for batch in pool.imap(self, batches):
-                records.extend(batch)
+
+        def process_batch(batch):
+            try:
+                return self(batch)
+            except Exception as e:
+                # Handle exception, log it, or raise it depending on your needs
+                print(f"Error processing batch: {e}")
+                return []
+
+        with Pool(num_proc) as pool, tqdm(total=len(batches)) as pbar:
+            for result in pool.imap(process_batch, batches):
+                records.extend(result)
+                pbar.update(1)
+
+        return records
 
     def filter_out(self, line):
         return len(line) < 80
@@ -131,11 +137,11 @@ class StandardProcessor(object):
         return None
     
     def __call__(self, inputs):
-        texts = inputs[0]
-        dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+        #dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         batch = []
-        for i, text in enumerate(texts): # for every doc
-            lines = sent_tokenize(text)
+        inputs = pd.DataFrame(inputs)[self.columns]
+        for i, row in enumerate(inputs.itertuples()): # for every doc
+            lines = sent_tokenize(getattr(row, self.text_col))
             j = 0
             while j < len(lines): # while segments can exist
                 try:
@@ -165,13 +171,13 @@ class StandardProcessor(object):
 
                             target_second_length = self._target_length - len(first_segment)
                             for _ in range(10):
-                                random_document_index = random.randint(0, len(texts) - 1)
+                                random_document_index = random.randint(0, len(inputs) - 1)
                                 if random_document_index != i:
                                     break
                             if random_document_index == i:
                                 label = 0
                             
-                            random_document = texts[random_document_index]
+                            random_document = inputs.iloc[random_document_index][self.text_col]
                             random_document_lines = sent_tokenize(random_document)
                             random_document_tokids = self.process_document(random_document_lines)
                             if len(random_document_lines) == 0: 
@@ -203,15 +209,15 @@ class StandardProcessor(object):
                         attention_mask = [1] * len(tokens) + [0] * (self._max_length - len(tokens))
                         tokens = tokens + [self.hf_tokenizer.pad_token_id] * (self._max_length - len(tokens))
 
-                        dataset['input_ids'].append(tokens)
-                        dataset['attention_mask'].append(attention_mask)    
-                        dataset['segment_ids'].append(segment_ids)
-                        dataset['nsp_label'].append(label)
-                        dataset['mlm_positions'].append(masked_lm_positions)
-                        dataset['mlm_labels'].append(masked_lm_labels)
+                        #dataset['input_ids'].append(tokens)
+                        #dataset['attention_mask'].append(attention_mask)    
+                        #dataset['segment_ids'].append(segment_ids)
+                        #dataset['nsp_label'].append(label)
+                        #dataset['mlm_positions'].append(masked_lm_positions)
+                        #dataset['mlm_labels'].append(masked_lm_labels)
                         batch.append(self.create_record(tokens, attention_mask, segment_ids, label, masked_lm_positions, masked_lm_labels))
                         self._reset()
-        return dataset
+        return batch
 
 class CustomProcessor(StandardProcessor):
     def __init__(self, additional_col = 'additional', invert=False, **kwargs):
@@ -231,28 +237,27 @@ class CustomProcessor(StandardProcessor):
         return None
 
     def __call__(self, inputs):
-        texts, additionals = inputs[0], inputs[1]
-        logging.info(texts[0], additionals[0])
-        dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+        #dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
         batch = []
-        for i, text in enumerate(texts): # for every doc
-            lines = sent_tokenize(text)
+        inputs = pd.DataFrame(inputs)[self.columns]
+        for i, row in enumerate(inputs.itertuples()): # for every doc
+            lines = sent_tokenize(getattr(row, self.text_col))
             second_segment = []
             j = 0
             while j < len(lines): # for every paragraph
                 j += 1
                 if len(self._current_sentences) == 0: # Just reset so find a new additional
                     label = 0
-                    current_additional = additionals[i]
+                    current_additional = getattr(row, self.additional_col)
                     if random.random() < self._nsp_prob:
                         label = 1
                         for _ in range(10):
-                            random_additional_index = random.randint(0, len(additionals) - 1)
+                            random_additional_index = random.randint(0, len(inputs) - 1)
                             if random_additional_index != i:
                                 break
                         if random_additional_index == i:
                             label = 0
-                        current_additional = additionals[random_additional_index]
+                        current_additional = inputs.iloc[random_additional_index][self.additional_col]
 
                     additional_tokens = self.hf_tokenizer.tokenize(current_additional)
                     additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
@@ -290,13 +295,13 @@ class CustomProcessor(StandardProcessor):
                     attention_mask = [1] * len(tokens) + [0] * (self._max_length - len(tokens))
                     tokens = tokens + [self.hf_tokenizer.pad_token_id] * (self._max_length - len(tokens))
 
-                    dataset['input_ids'].append(tokens)
-                    dataset['attention_mask'].append(attention_mask)    
-                    dataset['segment_ids'].append(segment_ids)
-                    dataset['nsp_label'].append(label)
-                    dataset['mlm_positions'].append(masked_lm_positions)
-                    dataset['mlm_labels'].append(masked_lm_labels)
+                    #dataset['input_ids'].append(tokens)
+                    #dataset['attention_mask'].append(attention_mask)    
+                    #dataset['segment_ids'].append(segment_ids)
+                    #dataset['nsp_label'].append(label)
+                    #dataset['mlm_positions'].append(masked_lm_positions)
+                    #dataset['mlm_labels'].append(masked_lm_labels)
                     batch.append(self.create_record(tokens, attention_mask, segment_ids, label, masked_lm_positions, masked_lm_labels))
                     self._reset()
 
-        return dataset
+        return batch
