@@ -25,8 +25,8 @@ class StandardProcessor(object):
         
         self.hf_tokenizer = hf_tokenizer
         self.vocab = hf_tokenizer.get_vocab()
-        self._current_sentences = []
-        self._current_length = 0
+        _current_sentences = []
+        _current_length = 0
         self._max_length = max_length
         self._target_length = max_length -3 
 
@@ -43,15 +43,14 @@ class StandardProcessor(object):
         self._mask_prob = 1 - original_prob - replace_prob
 
         self.columns = [self.text_col]
-
-        self.create_record = lambda inp, attn, seg, nsp, pos, labels: {'input_ids':inp, 'attention_mask':attn, 'segment_ids':seg, 'nsp_label':nsp, 'mlm_positions':pos, 'mlm_labels':labels}
     
-    def _reset(self):
-        self._current_sentences = []
-        self._current_length = 0
-    
-    def _batch(self, iterable, bs):
+    @staticmethod
+    def _batch(iterable, bs):
         return chunked(iterable, bs)
+    
+    @staticmethod
+    def create_record(inp, attn, seg, nsp, pos, labels):
+        return {'input_ids': inp, 'attention_mask': attn, 'segment_ids': seg, 'nsp_label': nsp, 'mlm_positions': pos, 'mlm_labels': labels}
 
     def _truncate_seq_pair(self, first_segment, second_segment):
         """Truncates a pair of sequences to a maximum sequence length."""
@@ -120,18 +119,22 @@ class StandardProcessor(object):
     def process_document(self, texts):
         tokens = [self.hf_tokenizer.tokenize(text) for text in texts]
         return [self.hf_tokenizer.convert_tokens_to_ids(token) for token in tokens]
-
-    def add_line(self, line):
-        line = self.clean(line)
-        tokens = self.hf_tokenizer.tokenize(line)
-        tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
-        self._current_sentences.append(tokids)
-        self._current_length += len(tokids)
-
-        return None
     
     def __call__(self, inputs):
         #dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+
+        _current_sentences = []
+        _current_length = 0
+
+        def add_line(self, line):
+            line = self.clean(line)
+            tokens = self.hf_tokenizer.tokenize(line)
+            tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
+            _current_sentences.append(tokids)
+            _current_length += len(tokids)
+
+            return None  
+
         batch = []
         inputs = pd.DataFrame(inputs)[self.columns]
         for i, row in enumerate(inputs.itertuples()): # for every doc
@@ -141,26 +144,27 @@ class StandardProcessor(object):
                 try:
                     line = lines[j]
                 except IndexError:
-                    self._reset()
+                    _current_sentences = []
+                    _current_length = 0
                     break
 
-                self.add_line(line)
+                add_line(line)
                 j += 1
 
-                if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
-                    if self._current_sentences: # Sanity check
+                if _current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
+                    if _current_sentences: # Sanity check
                         first_end = 1
-                        if len(self._current_sentences) >= 2:
-                            first_end = random.randint(1, len(self._current_sentences) - 1)
+                        if len(_current_sentences) >= 2:
+                            first_end = random.randint(1, len(_current_sentences) - 1)
                         
                         first_segment = []
                         for k in range(first_end):
-                            first_segment.extend(self._current_sentences[k])
+                            first_segment.extend(_current_sentences[k])
                         
                         second_segment = []
                         label = 0
 
-                        if len(self._current_sentences) == 1 or random.random() < self._nsp_prob: # NSP Swapping
+                        if len(_current_sentences) == 1 or random.random() < self._nsp_prob: # NSP Swapping
                             label = 1
 
                             target_second_length = self._target_length - len(first_segment)
@@ -176,8 +180,8 @@ class StandardProcessor(object):
                             random_document_tokids = self.process_document(random_document_lines)
                             if len(random_document_lines) == 0: 
                                 label = 0
-                                for k in range(first_end, len(self._current_sentences)):
-                                    second_segment.extend(self._current_sentences[k])
+                                for k in range(first_end, len(_current_sentences)):
+                                    second_segment.extend(_current_sentences[k])
                             else:
                                 random_start = random.randint(0, len(random_document_lines) - 1)
 
@@ -185,12 +189,12 @@ class StandardProcessor(object):
                                     second_segment.extend(random_document_tokids[k])
                                     if len(second_segment) >= target_second_length:
                                         break
-                                num_unused_segments = len(self._current_sentences) - first_end # Reuse unused segments
+                                num_unused_segments = len(_current_sentences) - first_end # Reuse unused segments
                                 j -= num_unused_segments # Reset iterator
                         else:
                             label = 0
-                            for k in range(first_end, len(self._current_sentences)):
-                                second_segment.extend(self._current_sentences[k])
+                            for k in range(first_end, len(_current_sentences)):
+                                second_segment.extend(_current_sentences[k])
                 
                         self._truncate_seq_pair(first_segment, second_segment)
                         first_segment = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id]
@@ -210,7 +214,8 @@ class StandardProcessor(object):
                         #dataset['mlm_positions'].append(masked_lm_positions)
                         #dataset['mlm_labels'].append(masked_lm_labels)
                         batch.append(self.create_record(tokens, attention_mask, segment_ids, label, masked_lm_positions, masked_lm_labels))
-                        self._reset()
+                        _current_sentences = []
+                        _current_length = 0
         return batch
 
 class CustomProcessor(StandardProcessor):
@@ -220,18 +225,21 @@ class CustomProcessor(StandardProcessor):
         self.invert = invert
 
         self.columns.append(self.additional_col)
-    
-    def add_line(self, line):
-        line = self.clean(line)
-        tokens = self.hf_tokenizer.tokenize(line)
-        tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
-        self._current_sentences.append(tokids)
-        self._current_length += len(tokids)
-
-        return None
 
     def __call__(self, inputs):
         #dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
+
+        _current_sentences = []
+        _current_length = 0
+
+        def add_line(self, line):
+            line = self.clean(line)
+            tokens = self.hf_tokenizer.tokenize(line)
+            tokids = self.hf_tokenizer.convert_tokens_to_ids(tokens)
+            _current_sentences.append(tokids)
+            _current_length += len(tokids)
+            return None
+
         batch = []
         inputs = pd.DataFrame(inputs)[self.columns]
         for i, row in enumerate(inputs.itertuples()): # for every doc
@@ -240,7 +248,7 @@ class CustomProcessor(StandardProcessor):
             j = 0
             while j < len(lines): # for every paragraph
                 j += 1
-                if len(self._current_sentences) == 0: # Just reset so find a new additional
+                if len(_current_sentences) == 0: # Just reset so find a new additional
                     label = 0
                     current_additional = getattr(row, self.additional_col)
                     if random.random() < self._nsp_prob:
@@ -256,28 +264,34 @@ class CustomProcessor(StandardProcessor):
                     additional_tokens = self.hf_tokenizer.tokenize(current_additional)
                     additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
                     first_segment = additional_tokids
-                    self._current_length += len(additional_tokids)
+                    _current_length += len(additional_tokids)
                 try:
                     line = lines[j]
                 except IndexError:
-                    self._reset()
+                    _current_sentences = []
+                    _current_length = 0
                     break
-                self.add_line(line)
+                add_line(line)
                 
-                if self._current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
-                    if self._current_sentences:
+                if _current_length >= self._target_length or j == len(lines) - 1: # Segments are ready
+                    if _current_sentences:
                         second_end = 1
-                        if len(self._current_sentences) >= 2:
-                            second_end = random.randint(1, len(self._current_sentences) - 1)
+                        if len(_current_sentences) >= 2:
+                            second_end = random.randint(1, len(_current_sentences) - 1)
                         
                         second_segment = []
                         for k in range(second_end):
-                            second_segment.extend(self._current_sentences[k])
-                        num_unused_segments = len(self._current_sentences) - second_end # Reuse unused segments
+                            second_segment.extend(_current_sentences[k])
+                        num_unused_segments = len(_current_sentences) - second_end # Reuse unused segments
                         j -= num_unused_segments # Reset iterator
 
                     if self.invert:
                         first_segment, second_segment = second_segment, first_segment
+                        
+                    self._truncate_seq_pair(first_segment, second_segment)
+                    
+                    tokens = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id] + second_segment + [self.hf_tokenizer.sep_token_id]
+                    segment_ids = [0] * (len(first_segment) + 2) + [1] *first_segment
                         
                     self._truncate_seq_pair(first_segment, second_segment)
                     
@@ -296,6 +310,7 @@ class CustomProcessor(StandardProcessor):
                     #dataset['mlm_positions'].append(masked_lm_positions)
                     #dataset['mlm_labels'].append(masked_lm_labels)
                     batch.append(self.create_record(tokens, attention_mask, segment_ids, label, masked_lm_positions, masked_lm_labels))
-                    self._reset()
+                    _current_sentences = []
+                    _current_length = 0
 
         return batch
