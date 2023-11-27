@@ -6,6 +6,8 @@ from nltk.tokenize import sent_tokenize
 import ir_datasets as irds
 from multiprocessing import Pool
 from tqdm import tqdm
+from itertools import batched
+
 
 class StandardProcessor(object):
     def __init__(self, 
@@ -49,7 +51,6 @@ class StandardProcessor(object):
         self._current_length = 0
     
     def _batch(self, iterable, bs):
-        from itertools import batched
         return batched(iterable, bs)
 
     def _truncate_seq_pair(self, first_segment, second_segment):
