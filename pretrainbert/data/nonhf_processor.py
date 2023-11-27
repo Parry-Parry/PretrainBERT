@@ -48,7 +48,7 @@ class StandardProcessor(object):
         self._current_sentences = []
         self._current_length = 0
     
-    def _batch(iterable, bs):
+    def _batch(self, iterable, bs):
         from itertools import chunked
         return chunked(iterable, bs)
 
