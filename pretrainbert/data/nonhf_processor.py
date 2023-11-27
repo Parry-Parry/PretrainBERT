@@ -106,7 +106,6 @@ class StandardProcessor(object):
             try:
                 return self(batch)
             except Exception as e:
-                # Handle exception, log it, or raise it depending on your needs
                 print(f"Error processing batch: {e}")
                 return []
 
