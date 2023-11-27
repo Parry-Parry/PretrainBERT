@@ -104,8 +104,8 @@ class StandardProcessor(object):
         records = []
         from operator import length_hint
 
-        with Pool(num_proc) as pool, tqdm() as pbar:
-            for result in pool.map(self, batches):
+        with Pool(num_proc) as pool, tqdm(len=length_hint(batches)) as pbar:
+            for result in pool.imap_unordered(self, batches):
                 records.extend(result)
                 pbar.update(1)
 

@@ -16,7 +16,7 @@ def main(config : str):
 
     tokenizer = ElectraTokenizerFast.from_pretrained(model_id) if 'electra' in model_id else AutoTokenizer.from_pretrained(model_id)
     processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dset=dataset, hf_tokenizer=tokenizer, **config)
-    print("Using {processor.columns} columns")
+    print(f"Using {processor.columns} columns")
     print("Processing Dataset")
     dataset = processor.map(**map_config)
     dataset = Dataset.from_list(dataset)
