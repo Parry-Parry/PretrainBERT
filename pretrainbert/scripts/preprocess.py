@@ -16,13 +16,13 @@ def main(config : str):
 
     tokenizer = ElectraTokenizerFast.from_pretrained(model_id) if 'electra' in model_id else AutoTokenizer.from_pretrained(model_id)
     processor = StandardProcessor(dataset, tokenizer, **config) if process_type == 'std' else CustomProcessor(hf_dset=dataset, hf_tokenizer=tokenizer, **config)
-    logging.info("Using {processor.columns} columns")
-    logging.info("Processing Dataset")
+    print("Using {processor.columns} columns")
+    print("Processing Dataset")
     dataset = processor.map(**map_config)
     dataset = Dataset.from_list(dataset)
     dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.ERROR)
     Fire(main)
