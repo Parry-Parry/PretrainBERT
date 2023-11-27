@@ -1,6 +1,7 @@
 from enum import Enum
 from .skeleton.models import ElectraForDiscrim, ElectraForNSP, ElectraForMultiObj
-from .data.processor import StandardProcessor, CustomProcessor
+from .data.processor import HFStandardProcessor, HFCustomProcessor
+from .data.nonhf_processor import StandardProcessor, CustomProcessor
 from .util import yaml_load
 
 class ModelType(Enum):

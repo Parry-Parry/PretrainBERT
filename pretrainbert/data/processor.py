@@ -5,7 +5,7 @@ import torch
 import logging
 from nltk.tokenize import sent_tokenize
 
-class StandardProcessor(object):
+class HFStandardProcessor(object):
     def __init__(self, 
                  hf_dset, 
                  hf_tokenizer, 
@@ -201,7 +201,7 @@ class StandardProcessor(object):
                         self._reset()
         return dataset
 
-class CustomProcessor(StandardProcessor):
+class HFCustomProcessor(HFStandardProcessor):
     def __init__(self, additional_col = 'additional', invert=False, **kwargs):
         super().__init__(**kwargs)
         self.additional_col = additional_col
