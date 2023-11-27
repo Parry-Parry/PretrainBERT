@@ -101,6 +101,7 @@ class StandardProcessor(object):
         batch_size = kwargs.pop('batch_size', 10_000)
         batches = self._batch(self.irds.docs_iter(), batch_size)
         records = []
+        from operator import length_hint
 
         def process_batch(batch):
             try:
@@ -109,7 +110,7 @@ class StandardProcessor(object):
                 print(f"Error processing batch: {e}")
                 return []
 
-        with Pool(num_proc) as pool, tqdm(total=len(batches)) as pbar:
+        with Pool(num_proc) as pool, tqdm(total=length_hint(batches)) as pbar:
             for result in pool.imap(process_batch, batches):
                 records.extend(result)
                 pbar.update(1)
