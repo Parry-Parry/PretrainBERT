@@ -25,12 +25,10 @@ class StandardProcessor(object):
         
         self.hf_tokenizer = hf_tokenizer
         self.vocab = hf_tokenizer.get_vocab()
-        _current_sentences = []
-        _current_length = 0
         self._max_length = max_length
         self._target_length = max_length -3 
 
-        self.irds = irds.load(dset)
+        self.irds = dset
         self.text_col = text_col
         self.lines_delimiter = lines_delimiter
         self.apply_cleaning = apply_cleaning
@@ -99,7 +97,7 @@ class StandardProcessor(object):
     def map(self, **kwargs):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
         batch_size = kwargs.pop('batch_size', 10_000)
-        batches = self._batch(self.irds.docs_iter(), batch_size)
+        batches = self._batch(irds.load(self.irds).docs_iter(), batch_size)
         records = []
         from operator import length_hint
 
