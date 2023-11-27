@@ -104,7 +104,7 @@ class StandardProcessor(object):
         records = []
 
         with Pool(num_proc) as pool, tqdm() as pbar:
-            for result in pool.imap_unordered(self, batches):
+            for result in pool.imap(self, batches):
                 records.extend(result)
                 pbar.update(1)
 
