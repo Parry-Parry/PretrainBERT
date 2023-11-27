@@ -104,15 +104,8 @@ class StandardProcessor(object):
         records = []
         from operator import length_hint
 
-        def process_batch(batch):
-            try:
-                return self(batch)
-            except Exception as e:
-                print(f"Error processing batch: {e}")
-                return []
-
         with Pool(num_proc) as pool, tqdm(total=length_hint(batches)) as pbar:
-            for result in pool.imap(process_batch, batches):
+            for result in pool.imap(self, batches):
                 records.extend(result)
                 pbar.update(1)
 
