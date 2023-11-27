@@ -49,8 +49,8 @@ class StandardProcessor(object):
         self._current_length = 0
     
     def _batch(self, iterable, bs):
-        from more_itertools import chunked
-        return chunked(iterable, bs)
+        from itertools import batched
+        return batched(iterable, bs)
 
     def _truncate_seq_pair(self, first_segment, second_segment):
         """Truncates a pair of sequences to a maximum sequence length."""
