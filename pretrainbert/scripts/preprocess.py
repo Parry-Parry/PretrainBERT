@@ -2,6 +2,7 @@ from fire import Fire
 import logging
 from pretrainbert import StandardProcessor, CustomProcessor, yaml_load
 from transformers import AutoTokenizer, ElectraTokenizerFast
+from datasets import Dataset
 
 def main(config : str):
     config = yaml_load(config)
@@ -18,6 +19,7 @@ def main(config : str):
     logging.info("Using {processor.columns} columns")
     logging.info("Processing Dataset")
     dataset = processor.map(**map_config)
+    dataset = Dataset.from_list(dataset)
     dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
 
