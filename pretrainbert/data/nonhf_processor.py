@@ -104,7 +104,7 @@ class StandardProcessor(object):
         records = []
         from operator import length_hint
 
-        with Pool(num_proc) as pool, tqdm(total=length_hint(batches)) as pbar:
+        with Pool(num_proc) as pool, tqdm() as pbar:
             for result in pool.imap(self, batches):
                 records.extend(result)
                 pbar.update(1)
