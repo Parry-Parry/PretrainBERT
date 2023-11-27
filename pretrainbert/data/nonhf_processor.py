@@ -49,7 +49,7 @@ class StandardProcessor(object):
         self._current_length = 0
     
     def _batch(self, iterable, bs):
-        from itertools import chunked
+        from more_itertools import chunked
         return chunked(iterable, bs)
 
     def _truncate_seq_pair(self, first_segment, second_segment):
