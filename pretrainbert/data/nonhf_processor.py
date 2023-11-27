@@ -6,7 +6,7 @@ from nltk.tokenize import sent_tokenize
 import ir_datasets as irds
 from multiprocessing import Pool
 from tqdm import tqdm
-from itertools import batched
+from more_itertools import chunked
 
 
 class StandardProcessor(object):
@@ -51,7 +51,7 @@ class StandardProcessor(object):
         self._current_length = 0
     
     def _batch(self, iterable, bs):
-        return batched(iterable, bs)
+        return chunked(iterable, bs)
 
     def _truncate_seq_pair(self, first_segment, second_segment):
         """Truncates a pair of sequences to a maximum sequence length."""
