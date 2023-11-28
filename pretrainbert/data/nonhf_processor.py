@@ -7,12 +7,14 @@ import ir_datasets as irds
 from multiprocessing import Pool
 from tqdm import tqdm
 from more_itertools import chunked
-
+import json
+import gzip
 
 class StandardProcessor(object):
     def __init__(self, 
                  dset, 
                  hf_tokenizer, 
+                 out_dir : str = './',
                  max_length : int = 512, 
                  text_col='text', 
                  lines_delimiter='.', 
@@ -32,6 +34,7 @@ class StandardProcessor(object):
         self._current_length = 0
 
         self.irds = dset
+        self.out_file = out_dir
         self.text_col = text_col
         self.lines_delimiter = lines_delimiter
         self.apply_cleaning = apply_cleaning
@@ -101,14 +104,14 @@ class StandardProcessor(object):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
         batch_size = kwargs.pop('batch_size', 10_000)
         batches = self._batch(irds.load(self.irds).docs_iter(), batch_size)
-        records = []
-
-        with Pool(num_proc) as pool, tqdm() as pbar:
+        with Pool(num_proc) as pool, tqdm() as pbar, gzip.open(self.out_file, 'wt', compresslevel=5) as f:
             for result in pool.imap(self, batches):
-                records.extend(result)
+                for record in result: 
+                    record_serializable = {key: value.tolist() if isinstance(value, torch.Tensor) else value for key, value in record.items()}
+                    f.write(json.dumps(record_serializable))
+                    f.write('\n')
                 pbar.update(1)
-
-        return records
+        return 0
 
     def filter_out(self, line):
         return len(line) < 80

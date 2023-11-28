@@ -10,7 +10,6 @@ def main(config : str):
     model_id = config.pop('model_id', 'google/electra-small-discriminator')
     process_type = config.pop('process_type', 'std')
     map_config = config.pop('map_config', {})
-    out_dir = config.pop('out_dir', './')
 
     dataset = config.pop('dataset')
 
@@ -19,8 +18,6 @@ def main(config : str):
     print(f"Using {processor.columns} columns")
     print("Processing Dataset")
     dataset = processor.map(**map_config)
-    dataset = Dataset.from_list(dataset)
-    dataset.save_to_disk(out_dir)
     return "Dataset saved Successfully"
 
 if __name__ == '__main__':
