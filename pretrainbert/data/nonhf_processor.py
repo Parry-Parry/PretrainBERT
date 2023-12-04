@@ -109,7 +109,8 @@ class StandardProcessor(object):
                 for i, record in enumerate(result): 
                     record_serializable = {key: value.tolist() if isinstance(value, torch.Tensor) else value for key, value in record.items()}
                     if i == 0:
-                        print(record_serializable)
+                        import logging
+                        logging.info(record_serializable)
                     f.write(json.dumps(record_serializable))
                     f.write('\n')
                 pbar.update(1)
