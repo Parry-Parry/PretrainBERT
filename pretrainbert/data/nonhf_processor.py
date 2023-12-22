@@ -284,6 +284,7 @@ class CustomProcessor(StandardProcessor):
                     first_segment = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id]
                     second_segment += [self.hf_tokenizer.sep_token_id]
                     segment_ids = self.hf_tokenizer.create_token_type_ids_from_sequences(first_segment, second_segment)
+                    tokens = first_segment + second_segment
                     
                     (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
