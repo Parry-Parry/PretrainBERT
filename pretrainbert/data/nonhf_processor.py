@@ -232,8 +232,6 @@ class CustomProcessor(StandardProcessor):
         self.columns.append(self.additional_col)
 
     def __call__(self, inputs):
-        #dataset = {'input_ids':[], 'attention_mask' : [], 'segment_ids': [], 'nsp_label': [], 'mlm_positions': [], 'mlm_labels': []}
-
         batch = []
         inputs = pd.DataFrame(inputs)[self.columns]
         for i, row in enumerate(inputs.itertuples()): # for every doc
@@ -258,7 +256,7 @@ class CustomProcessor(StandardProcessor):
                     additional_tokens = self.hf_tokenizer.tokenize(current_additional)
                     additional_tokids = self.hf_tokenizer.convert_tokens_to_ids(additional_tokens)
                     first_segment = additional_tokids
-                    _current_length += len(additional_tokids)
+                    self._current_length += len(additional_tokids)
                 try:
                     line = lines[j]
                 except IndexError:
@@ -283,25 +281,15 @@ class CustomProcessor(StandardProcessor):
                         
                     self._truncate_seq_pair(first_segment, second_segment)
                     
-                    tokens = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id] + second_segment + [self.hf_tokenizer.sep_token_id]
-                    segment_ids = [0] * (len(first_segment) + 2) + [1] *first_segment
-                        
-                    self._truncate_seq_pair(first_segment, second_segment)
+                    first_segment = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id]
+                    second_segment += [self.hf_tokenizer.sep_token_id]
+                    segment_ids = self.hf_tokenizer.create_token_type_ids_from_sequences(first_segment, second_segment)
                     
-                    tokens = [self.hf_tokenizer.cls_token_id] + first_segment + [self.hf_tokenizer.sep_token_id] + second_segment + [self.hf_tokenizer.sep_token_id]
-                    segment_ids = [0] * (len(first_segment) + 2) + [1] * (len(second_segment) + 1) 
-
                     (tokens, masked_lm_positions, masked_lm_labels) = self._create_mlm(tokens)
 
                     attention_mask = [1] * len(tokens) + [0] * (self._max_length - len(tokens))
                     tokens = tokens + [self.hf_tokenizer.pad_token_id] * (self._max_length - len(tokens))
 
-                    #dataset['input_ids'].append(tokens)
-                    #dataset['attention_mask'].append(attention_mask)    
-                    #dataset['segment_ids'].append(segment_ids)
-                    #dataset['nsp_label'].append(label)
-                    #dataset['mlm_positions'].append(masked_lm_positions)
-                    #dataset['mlm_labels'].append(masked_lm_labels)
                     batch.append(self.create_record(tokens, attention_mask, segment_ids, label, masked_lm_positions, masked_lm_labels))
                     self.reset()
 
