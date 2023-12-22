@@ -104,7 +104,7 @@ class StandardProcessor(object):
         num_proc = kwargs.pop('num_proc', os.cpu_count())
         batch_size = kwargs.pop('batch_size', 10_000)
         batches = self._batch(irds.load(self.irds).docs_iter(), batch_size)
-        with Pool(num_proc) as pool, tqdm() as pbar, gzip.open(self.out_file, 'wt', compresslevel=5, ) as f:
+        with Pool(num_proc) as pool, tqdm() as pbar, gzip.open(self.out_file, 'wt', compresslevel=5) as f:
             for result in pool.imap(self, batches):
                 for i, record in enumerate(result): 
                     record_serializable = {key: value.tolist() if isinstance(value, torch.Tensor) else value for key, value in record.items()}
